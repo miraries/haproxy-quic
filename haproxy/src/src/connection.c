@@ -813,6 +813,8 @@ const char *conn_err_code_str(struct connection *c)
 
 	case CO_ER_REVERSE:        return "Reverse connect failure";
 
+	case CO_ER_PROXY_CONNECT_SEND: return "Upstream http proxy write error during handshake";
+
 	case CO_ER_POLLERR:        return "Poller reported POLLERR";
 	case CO_ER_EREFUSED:       return "ECONNREFUSED returned by OS";
 	case CO_ER_ERESET:         return "ECONNRESET returned by OS";
@@ -1880,6 +1882,202 @@ int conn_recv_socks4_proxy_response(struct connection *conn)
 	conn->flags |= CO_FL_ERROR;
 	return 0;
 }
+
+/* TODO: use *TRACE* features from HAProxy instead of DPRINTF */
+int conn_send_upstream_proxy_tunnel_request(struct connection *conn, int flag) {
+
+	struct server *srv = NULL;
+	struct proxy  *prx = NULL;
+	struct uph_list *my_headers;
+
+	DPRINTF(stderr, "HTTP TUNNEL SEND start\n");
+
+	if (!conn_ctrl_ready(conn))
+		goto out_error;
+
+	if (!conn_get_dst(conn))
+		goto out_error;
+
+	/* srv must be set */
+	srv = objt_server(conn->target);
+	BUG_ON(!srv);
+
+	prx = srv->proxy;
+
+	if (!prx){
+		DPRINTF(stderr," NO PROXYS\n");
+		goto out_error;
+	}
+
+	DPRINTF(stderr,"proxy->id :%s:\n", prx->id);
+	DPRINTF(stderr,"upstream-proxy-target: %s\n", ist0(ist2(b_orig(&prx->tcp_req.upt), b_data(&prx->tcp_req.upt))));
+
+	chunk_reset(&trash);
+	chunk_memcat(&trash,"CONNECT ",8);
+	chunk_memcat(&trash,b_orig(&prx->tcp_req.upt), b_data(&prx->tcp_req.upt));
+
+	/* TODO use buffer for get_net_port? */
+	chunk_appendf(&trash,":%u HTTP/1.1\r\n",
+							ntohs(get_net_port(conn->dst)));
+
+	list_for_each_entry(my_headers, &prx->tcp_req.uph_rules, list) {
+		DPRINTF(stderr,"list each name  :%s:\n",ist0(ist2(b_orig(&my_headers->name), b_data(&my_headers->name))));
+		DPRINTF(stderr,"list each value :%s:\n",ist0(ist2(b_orig(&my_headers->value), b_data(&my_headers->value))));
+		chunk_memcat(&trash,b_orig(&my_headers->name), b_data(&my_headers->name));
+		chunk_memcat(&trash,": ",2);
+		chunk_memcat(&trash,b_orig(&my_headers->value), b_data(&my_headers->value));
+		chunk_memcat(&trash, "\r\n", 2);
+	}
+
+	/* Send last line to proxy*/
+	chunk_memcat(&trash, "\r\n", 2);
+
+	DPRINTF(stderr,"trash->data :%d:\n", (unsigned int)b_data(&trash));
+	DPRINTF(stderr,"What is send to Proxy >>:%s:<<\n",ist0(ist2(b_orig(&trash), b_data(&trash))));
+	DPRINTF(stderr,"send_proxy_ofs: %d\n", conn->send_proxy_ofs);
+
+	if (conn->send_proxy_ofs > 0) {
+		/*
+		 * This is the first call to send the request
+		 */
+		conn->send_proxy_ofs = -(int) b_data(&trash);
+	}
+
+	if (conn->send_proxy_ofs < 0) {
+		int ret = 0;
+
+		/* we are sending the htt-connect req_line here. If the data layer
+		 * has a pending write, we'll also set MSG_MORE.
+		 */
+		/* ret = conn_ctrl_send(
+				conn,
+				((char *) (proxy_connect)),
+				-conn->send_proxy_ofs,
+				(conn->subs && conn->subs->events & SUB_RETRY_SEND) ? CO_SFL_MSG_MORE : 0);
+		 */
+
+		ret = conn_ctrl_send(
+				conn,
+				b_orig(&trash),
+				-conn->send_proxy_ofs,
+				(conn->subs && conn->subs->events & SUB_RETRY_SEND) ? CO_SFL_MSG_MORE : 0);
+
+		DPRINTF(stderr, "HTTP TUNNEL send_proxy_ofs FD[%04X]: Before send remain is [%d], sent [%d]\n",
+				conn->handle.fd, conn->send_proxy_ofs, ret);
+
+		if (ret < 0) {
+			DPRINTF(stderr, "HTTP TUNNEL FD[%04X]: Before send remain is [%d], sent [%d]\n",
+				conn->handle.fd, conn->send_proxy_ofs, ret);
+
+			goto out_error;
+		}
+
+		conn->send_proxy_ofs += ret; /* becomes zero once complete */
+		if (conn->send_proxy_ofs != 0) {
+			goto out_wait;
+		}
+	}
+
+	/* OK we've the whole request sent */
+	//conn->flags &= ~CO_FL_UPSTREAM_PROXY_TUNNEL_SEND;
+	conn->flags &= ~flag;
+
+
+	/* The connection is ready now, simply return and let the connection
+	 * handler notify upper layers if needed.
+	 */
+	conn->flags &= ~CO_FL_WAIT_L4_CONN;
+
+	DPRINTF(stderr,"HTTP TUNNEL SEND end: okay\n");
+	DPRINTF(stderr,"send_proxy_ofs: %d\n", conn->send_proxy_ofs);
+
+	return 1;
+
+ out_error:
+	/* Write error on the file descriptor */
+	conn->flags |= CO_FL_ERROR;
+	if (conn->err_code == CO_ER_NONE) {
+		conn->err_code = CO_ER_PROXY_CONNECT_SEND;
+	}
+	DPRINTF(stderr, "HTTP TUNNEL SEND end: out_error\n");
+	return 0;
+
+ out_wait:
+	DPRINTF(stderr, "HTTP TUNNEL SEND end: out_wait\n");
+	return 0;
+}
+
+
+int conn_recv_upstream_proxy_tunnel_response(struct connection *conn, int flag) {
+
+	struct ist upstream_proxy_response = IST_NULL;
+	struct ist upstream_proxy_successful = ist("HTTP/1.1 200 Connection established");
+	int ret;
+
+	//DPRINTF(stderr, "HTTP TUNNEL RECV start\n");
+
+	if (!conn_ctrl_ready(conn))
+		goto fail;
+
+	BUG_ON(conn->flags & CO_FL_FDLESS);
+
+	if (!fd_recv_ready(conn->handle.fd)){
+		DPRINTF(stderr, "HTTP TUNNEL RECV fd_recv_ready\n");
+		goto not_ready;
+	}
+
+	chunk_reset(&trash);
+
+	while (1) {
+		ret = recv(conn->handle.fd, b_orig(&trash), b_size(&trash), MSG_DONTWAIT);
+
+		if (ret < 0) {
+			if (errno == EAGAIN)
+				goto not_ready;
+		}
+
+		b_set_data(&trash, ret);
+		upstream_proxy_response = ist2(b_orig(&trash), b_data(&trash));
+
+		/* get the first line from proxy response*/
+		upstream_proxy_response = iststop(upstream_proxy_response,'\r');
+		DPRINTF(stderr,"upstream_proxy_response len :%ld:\n",istlen(upstream_proxy_response));
+		DPRINTF(stderr,"upstream_proxy_response :%s:\n",ist0(upstream_proxy_response));
+		DPRINTF(stderr,"Test isteq :%d:\n",isteq(upstream_proxy_response,upstream_proxy_successful));
+
+		/* check for HTTP/1.1 200 Connection established */
+		if(!isteq(upstream_proxy_response,upstream_proxy_successful)){
+			DPRINTF(stderr,"HTTP TUNNEL no 200 ret :%d: errno :%d: strerror :%s:\n", ret, errno ,strerror(errno));
+			goto recv_abort;
+		}
+		break;
+	}
+
+	DPRINTF(stderr, "HTTP TUNNEL RECV end\n");
+	conn->flags &= ~flag;
+	conn->flags &= ~CO_FL_WAIT_L4_CONN;
+
+	return 1;
+
+ not_ready:
+	//DPRINTF(stderr, "HTTP TUNNEL RECV not_ready out\n");
+	conn->flags |= CO_FL_WAIT_L4_CONN;
+	return 0;
+
+ recv_abort:
+	DPRINTF(stderr, "HTTP TUNNEL RECV recv_abort out\n");
+	if (conn->err_code == CO_ER_NONE) {
+		conn->err_code = CO_ER_PROXY_CONNECT_RECV;
+	}
+	conn->flags |= (CO_FL_SOCK_RD_SH | CO_FL_SOCK_WR_SH);
+	goto fail;
+
+ fail:
+	DPRINTF(stderr, "HTTP TUNNEL RECV fail out\n");
+	conn->flags |= CO_FL_ERROR;
+	return 0;
+}
+
 
 /* registers proto mux list <list>. Modifies the list element! */
 void register_mux_proto(struct mux_proto_list *list)

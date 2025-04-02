@@ -415,6 +415,10 @@ int quic_connect_server(struct connection *conn, int flags)
                 setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &global.tune.server_rcvbuf, sizeof(global.tune.server_rcvbuf));
 
 	addr = (conn->flags & CO_FL_SOCKS4) ? &srv->socks4_addr : conn->dst;
+
+	/* TODO: Can an upstream proxy be used for quic? */
+	addr = (conn->flags & CO_FL_UPSTREAM_PROXY_TUNNEL) ? &srv->upstream_proxy_tunnel_addr : conn->dst;
+
 	if (connect(fd, (const struct sockaddr *)addr, get_addr_len(addr)) == -1) {
 		if (errno == EINPROGRESS || errno == EALREADY) {
 			/* common case, let's wait for connect status */

@@ -96,6 +96,13 @@ enum act_name {
 	/* tcp actions */
 	ACT_TCP_EXPECT_PX,
 	ACT_TCP_EXPECT_CIP,
+	
+	/* Add Upstream hostname */
+	ACT_TCP_UPSTREAM_HOSTNAME,
+
+	/* Add Upstream header */
+	ACT_TCP_UPSTREAM_HEADER,
+	
 	ACT_TCP_CLOSE, /* close at the sender's */
 };
 

@@ -304,6 +304,8 @@ struct proxy {
 		struct list inspect_rules;      /* inspection rules */
 		struct list l4_rules;           /* layer4 rules */
 		struct list l5_rules;           /* layer5 rules */
+		struct list uph_rules;		    /* upstream rules */
+		struct buffer upt;			    /* upstream proxy target  */
 	} tcp_req;
 	struct {                                /* TCP request processing */
 		unsigned int inspect_delay;     /* inspection delay */

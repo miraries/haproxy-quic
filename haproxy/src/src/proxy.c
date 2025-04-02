@@ -236,6 +236,8 @@ static inline void proxy_free_common(struct proxy *px)
 	free_act_rules(&px->tcp_rep.inspect_rules);
 	free_act_rules(&px->tcp_req.l4_rules);
 	free_act_rules(&px->tcp_req.l5_rules);
+	free_act_rules(&px->tcp_req.uph_rules);
+	// chunk_destroy(&defproxy->tcp_req.upt); // is this needed?
 	free_act_rules(&px->http_req_rules);
 	free_act_rules(&px->http_res_rules);
 	free_act_rules(&px->http_after_res_rules);
@@ -1423,6 +1425,7 @@ void init_new_proxy(struct proxy *p)
 	LIST_INIT(&p->tcp_rep.inspect_rules);
 	LIST_INIT(&p->tcp_req.l4_rules);
 	LIST_INIT(&p->tcp_req.l5_rules);
+	LIST_INIT(&p->tcp_req.uph_rules);
 #ifdef USE_QUIC
 	LIST_INIT(&p->quic_init_rules);
 #endif

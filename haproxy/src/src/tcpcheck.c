@@ -1327,6 +1327,9 @@ enum tcpcheck_eval_ret tcpcheck_eval_connect(struct check *check, struct tcpchec
 		conn->flags |= CO_FL_SOCKS4;
 		TRACE_DEVEL("configure SOCKS4 proxy", CHK_EV_TCPCHK_CONN);
 	}
+
+	/* TODO: Add check via upstream http proxy */
+
 	else if ((connect->options & TCPCHK_OPT_DEFAULT_CONNECT) && s && s->check.via_socks4 && (s->flags & SRV_F_SOCKS4_PROXY)) {
 		conn->send_proxy_ofs = 1;
 		conn->flags |= CO_FL_SOCKS4;

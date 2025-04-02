@@ -170,6 +170,7 @@ enum srv_init_state {
 #define SRV_F_NON_PURGEABLE 0x2000       /* this server cannot be removed at runtime */
 #define SRV_F_DEFSRV_USE_SSL 0x4000      /* default-server uses SSL */
 #define SRV_F_DELETED 0x8000             /* srv is deleted but not yet purged */
+#define SRV_F_UPSTREAM_PROXY_TUNNEL 0x10000 /* this server uses a upstream proxy tunnel with CONNECT method */
 
 /* configured server options for send-proxy (server->pp_opts) */
 #define SRV_PP_V1               0x0001   /* proxy protocol version 1 */
@@ -492,6 +493,7 @@ struct server {
 	struct conn_src conn_src;               /* connection source settings */
 	struct sockaddr_storage addr;           /* the address to connect to, doesn't include the port */
 	struct sockaddr_storage socks4_addr;	/* the address of the SOCKS4 Proxy, including the port */
+	struct sockaddr_storage upstream_proxy_tunnel_addr; /* the address of the upstream PROXY for proxy tunnel, including the port */
 
 	EXTRA_COUNTERS(extra_counters);
 };

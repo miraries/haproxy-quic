@@ -56,6 +56,24 @@ struct task *xprt_handshake_io_cb(struct task *t, void *bctx, unsigned int state
 			goto out;
 		}
 
+	/* TODO: check flags to send optional headers like keep alive host etc */
+	if (conn->flags & CO_FL_UPSTREAM_PROXY_TUNNEL_SEND) {
+		if (!conn_send_upstream_proxy_tunnel_request(conn,CO_FL_UPSTREAM_PROXY_TUNNEL_SEND)) {
+			ctx->xprt->subscribe(conn, ctx->xprt_ctx, SUB_RETRY_SEND,
+								 &ctx->wait_event);
+			goto out;
+		}
+	}
+
+	/* TODO: check flags to send optional headers like keep alive host etc */
+	if (conn->flags & CO_FL_UPSTREAM_PROXY_TUNNEL_RECV) {
+		if (!conn_recv_upstream_proxy_tunnel_response(conn, CO_FL_UPSTREAM_PROXY_TUNNEL_RECV)) {
+			ctx->xprt->subscribe(conn, ctx->xprt_ctx, SUB_RETRY_RECV,
+								 &ctx->wait_event);
+			goto out;
+		}
+	}
+
 	if (conn->flags & CO_FL_ACCEPT_CIP)
 		if (!conn_recv_netscaler_cip(conn, CO_FL_ACCEPT_CIP)) {
 			ctx->xprt->subscribe(conn, ctx->xprt_ctx, SUB_RETRY_RECV,

@@ -1965,6 +1965,38 @@ static int srv_parse_socks4(char **args, int *cur_arg,
 	return ERR_ALERT | ERR_FATAL;
 }
 
+/* Parse the "upstream-proxy-tunnel" server keyword */
+static int srv_parse_upstream_proxy_tunnel(char **args, int *cur_arg,
+								  struct proxy *curproxy, struct server *newsrv, char **err) {
+	char *errmsg;
+	int port_low, port_high;
+	struct sockaddr_storage *sk;
+
+	errmsg = NULL;
+
+	if (!*args[*cur_arg + 1]) {
+		memprintf(err, "'%s' expects <addr>:<port> as argument.\n", args[*cur_arg]);
+		goto err;
+	}
+
+	/* 'sk' is statically allocated (no need to be freed). */
+	sk = str2sa_range(args[*cur_arg + 1], NULL, &port_low, &port_high, NULL, NULL, NULL,
+					  &errmsg, NULL, NULL, NULL, // added NULL here
+					  PA_O_RESOLVE | PA_O_PORT_OK | PA_O_PORT_MAND | PA_O_STREAM | PA_O_CONNECT);
+	if (!sk) {
+		memprintf(err, "'%s %s' : %s\n", args[*cur_arg], args[*cur_arg + 1], errmsg);
+		goto err;
+	}
+
+	newsrv->flags |= SRV_F_UPSTREAM_PROXY_TUNNEL;
+	newsrv->upstream_proxy_tunnel_addr = *sk;
+
+	return 0;
+
+ err:
+	free(errmsg);
+	return ERR_ALERT | ERR_FATAL;
+}
 
 /* parse the "tfo" server keyword */
 static int srv_parse_tfo(char **args, int *cur_arg, struct proxy *px, struct server *newsrv, char **err)
@@ -2399,6 +2431,7 @@ static struct srv_kw_list srv_kws = { "ALL", { }, {
 	{ "stick",                srv_parse_stick,                0,  1,  0 }, /* Enable stick-table persistence */
 	{ "tfo",                  srv_parse_tfo,                  0,  1,  1 }, /* enable TCP Fast Open of server */
 	{ "track",                srv_parse_track,                1,  1,  1 }, /* Set the current state of the server, tracking another one */
+	{ "upstream-proxy-tunnel", srv_parse_upstream_proxy_tunnel, 1,  1,  0 }, /* Set the upstream proxy tunnel backend of the server*/
 	{ "socks4",               srv_parse_socks4,               1,  1,  0 }, /* Set the socks4 proxy of the server*/
 	{ "usesrc",               srv_parse_usesrc,               0,  1,  1 }, /* safe-guard against usesrc without preceding <source> keyword */
 	{ "weight",               srv_parse_weight,               1,  1,  1 }, /* Set the load-balancing weight */
@@ -2928,6 +2961,7 @@ void srv_settings_cpy(struct server *srv, const struct server *src, int srv_tmpl
 	srv->check.via_socks4         = src->check.via_socks4;
 	srv->socks4_addr              = src->socks4_addr;
 	srv->log_bufsize              = src->log_bufsize;
+	srv->upstream_proxy_tunnel_addr = src->upstream_proxy_tunnel_addr;
 
 	LIST_INIT(&srv->pp_tlvs);
 

@@ -85,7 +85,7 @@ jobs:
     needs: [ dataplaneapi, regtests ]
     strategy:
       matrix:
-        dist_type: [ bin, deb ]
+        dist_type: [ bin ]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

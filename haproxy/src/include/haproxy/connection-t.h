@@ -71,90 +71,96 @@ struct ssl_sock_ctx;
 /* flags for use in connection->flags. Please also update the conn_show_flags()
  * function below in case of changes.
  */
-enum {
-	CO_FL_NONE          = 0x00000000,  /* Just for initialization purposes */
+enum
+{
+	CO_FL_NONE = 0x00000000, /* Just for initialization purposes */
 
 	/* Do not change these values without updating conn_*_poll_changes() ! */
-	CO_FL_SAFE_LIST     = 0x00000001,  /* 0 = not in any list, 1 = in safe_list  */
-	CO_FL_IDLE_LIST     = 0x00000002,  /* 2 = in idle_list, 3 = invalid */
-	CO_FL_LIST_MASK     = 0x00000003,  /* Is the connection in any server-managed list ? */
+	CO_FL_SAFE_LIST = 0x00000001, /* 0 = not in any list, 1 = in safe_list  */
+	CO_FL_IDLE_LIST = 0x00000002, /* 2 = in idle_list, 3 = invalid */
+	CO_FL_LIST_MASK = 0x00000003, /* Is the connection in any server-managed list ? */
 
-	CO_FL_REVERSED      = 0x00000004,  /* connection has been reversed to backend / reversed and accepted on frontend */
-	CO_FL_ACT_REVERSING = 0x00000008,  /* connection has been reversed to frontend but not yet accepted */
+	CO_FL_REVERSED = 0x00000004,	  /* connection has been reversed to backend / reversed and accepted on frontend */
+	CO_FL_ACT_REVERSING = 0x00000008, /* connection has been reversed to frontend but not yet accepted */
 
-	CO_FL_OPT_MARK      = 0x00000010,  /* connection has a special sockopt mark */
+	CO_FL_OPT_MARK = 0x00000010, /* connection has a special sockopt mark */
 
-	CO_FL_OPT_TOS       = 0x00000020,  /* connection has a special sockopt tos */
+	CO_FL_OPT_TOS = 0x00000020, /* connection has a special sockopt tos */
 
-	/* unused : 0x00000040, 0x00000080 */
+	/*  Upstream http proxy */
+	CO_FL_UPSTREAM_PROXY_TUNNEL_SEND = 0x00000040, /* handshaking with upstream http proxy, going to send the handshake */
+	CO_FL_UPSTREAM_PROXY_TUNNEL_RECV = 0x00000080, /* handshaking with upstream http proxy, going to check if handshake succeed */
 
 	/* These flags indicate whether the Control and Transport layers are initialized */
-	CO_FL_CTRL_READY    = 0x00000100, /* FD was registered, fd_delete() needed */
-	CO_FL_XPRT_READY    = 0x00000200, /* xprt_start() done, xprt can be used */
+	CO_FL_CTRL_READY = 0x00000100, /* FD was registered, fd_delete() needed */
+	CO_FL_XPRT_READY = 0x00000200, /* xprt_start() done, xprt can be used */
 
-	CO_FL_WANT_DRAIN    = 0x00000400, /* try to drain pending data when closing */
+	CO_FL_WANT_DRAIN = 0x00000400, /* try to drain pending data when closing */
 
 	/* This flag is used by data layers to indicate they had to stop
 	 * receiving data because a buffer was full. The connection handler
 	 * clears it before first calling the I/O and data callbacks.
 	 */
-	CO_FL_WAIT_ROOM     = 0x00000800,  /* data sink is full */
+	CO_FL_WAIT_ROOM = 0x00000800, /* data sink is full */
 
 	/* These flags are used to report whether the from/to addresses are set or not */
 	/* unused: 0x00001000 */
 	/* unused: 0x00002000 */
 
-	CO_FL_EARLY_SSL_HS  = 0x00004000,  /* We have early data pending, don't start SSL handshake yet */
-	CO_FL_EARLY_DATA    = 0x00008000,  /* At least some of the data are early data */
-	CO_FL_SOCKS4_SEND   = 0x00010000,  /* handshaking with upstream SOCKS4 proxy, going to send the handshake */
-	CO_FL_SOCKS4_RECV   = 0x00020000,  /* handshaking with upstream SOCKS4 proxy, going to check if handshake succeed */
+	CO_FL_EARLY_SSL_HS = 0x00004000, /* We have early data pending, don't start SSL handshake yet */
+	CO_FL_EARLY_DATA = 0x00008000,	 /* At least some of the data are early data */
+	CO_FL_SOCKS4_SEND = 0x00010000,	 /* handshaking with upstream SOCKS4 proxy, going to send the handshake */
+	CO_FL_SOCKS4_RECV = 0x00020000,	 /* handshaking with upstream SOCKS4 proxy, going to check if handshake succeed */
 
 	/* flags used to remember what shutdown have been performed/reported */
-	CO_FL_SOCK_RD_SH    = 0x00040000,  /* SOCK layer was notified about shutr/read0 */
-	CO_FL_SOCK_WR_SH    = 0x00080000,  /* SOCK layer asked for shutw */
+	CO_FL_SOCK_RD_SH = 0x00040000, /* SOCK layer was notified about shutr/read0 */
+	CO_FL_SOCK_WR_SH = 0x00080000, /* SOCK layer asked for shutw */
 
 	/* flags used to report connection errors or other closing conditions */
-	CO_FL_ERROR         = 0x00100000,  /* a fatal error was reported     */
-	CO_FL_NOTIFY_DONE   = 0x001C0000,  /* any xprt shut/error flags above needs to be reported */
+	CO_FL_ERROR = 0x00100000,		/* a fatal error was reported     */
+	CO_FL_NOTIFY_DONE = 0x001C0000, /* any xprt shut/error flags above needs to be reported */
 
-	CO_FL_FDLESS        = 0x00200000,  /* this connection doesn't use any FD (e.g. QUIC) */
+	CO_FL_FDLESS = 0x00200000, /* this connection doesn't use any FD (e.g. QUIC) */
 
 	/* flags used to report connection status updates */
-	CO_FL_WAIT_L4_CONN  = 0x00400000,  /* waiting for L4 to be connected */
-	CO_FL_WAIT_L6_CONN  = 0x00800000,  /* waiting for L6 to be connected (eg: SSL) */
-	CO_FL_WAIT_L4L6     = 0x00C00000,  /* waiting for L4 and/or L6 to be connected */
+	CO_FL_WAIT_L4_CONN = 0x00400000, /* waiting for L4 to be connected */
+	CO_FL_WAIT_L6_CONN = 0x00800000, /* waiting for L6 to be connected (eg: SSL) */
+	CO_FL_WAIT_L4L6 = 0x00C00000,	 /* waiting for L4 and/or L6 to be connected */
 
 	/* All the flags below are used for connection handshakes. Any new
 	 * handshake should be added after this point, and CO_FL_HANDSHAKE
 	 * should be updated.
 	 */
-	CO_FL_SEND_PROXY    = 0x01000000,  /* send a valid PROXY protocol header */
-	CO_FL_ACCEPT_PROXY  = 0x02000000,  /* receive a valid PROXY protocol header */
-	CO_FL_ACCEPT_CIP    = 0x04000000,  /* receive a valid NetScaler Client IP header */
+	CO_FL_SEND_PROXY = 0x01000000,	 /* send a valid PROXY protocol header */
+	CO_FL_ACCEPT_PROXY = 0x02000000, /* receive a valid PROXY protocol header */
+	CO_FL_ACCEPT_CIP = 0x04000000,	 /* receive a valid NetScaler Client IP header */
 
 	/* below we have all handshake flags grouped into one */
-	CO_FL_HANDSHAKE     = CO_FL_SEND_PROXY | CO_FL_ACCEPT_PROXY | CO_FL_ACCEPT_CIP | CO_FL_SOCKS4_SEND | CO_FL_SOCKS4_RECV,
-	CO_FL_WAIT_XPRT     = CO_FL_WAIT_L4_CONN | CO_FL_HANDSHAKE | CO_FL_WAIT_L6_CONN,
+	CO_FL_HANDSHAKE = CO_FL_SEND_PROXY | CO_FL_ACCEPT_PROXY | CO_FL_ACCEPT_CIP | CO_FL_SOCKS4_SEND | CO_FL_SOCKS4_RECV | CO_FL_UPSTREAM_PROXY_TUNNEL_SEND | CO_FL_UPSTREAM_PROXY_TUNNEL_RECV,
+	CO_FL_WAIT_XPRT = CO_FL_WAIT_L4_CONN | CO_FL_HANDSHAKE | CO_FL_WAIT_L6_CONN,
 
-	CO_FL_SSL_WAIT_HS   = 0x08000000,  /* wait for an SSL handshake to complete */
+	CO_FL_SSL_WAIT_HS = 0x08000000, /* wait for an SSL handshake to complete */
 
 	/* This connection may not be shared between clients */
-	CO_FL_PRIVATE       = 0x10000000,
+	CO_FL_PRIVATE = 0x10000000,
 
 	/* This flag is used to know that a PROXY protocol header was sent by the client */
-	CO_FL_RCVD_PROXY    = 0x20000000,
+	CO_FL_RCVD_PROXY = 0x20000000,
 
 	/* The connection is unused by its owner */
-	CO_FL_SESS_IDLE     = 0x40000000,
+	CO_FL_SESS_IDLE = 0x40000000,
 
 	/* This last flag indicates that the transport layer is used (for instance
 	 * by logs) and must not be cleared yet. The last call to conn_xprt_close()
 	 * must be done after clearing this flag.
 	 */
-	CO_FL_XPRT_TRACKED  = 0x80000000,
+	CO_FL_XPRT_TRACKED = 0x80000000,
 
 	/* below we have all SOCKS handshake flags grouped into one */
-	CO_FL_SOCKS4        = CO_FL_SOCKS4_SEND | CO_FL_SOCKS4_RECV,
+	CO_FL_SOCKS4 = CO_FL_SOCKS4_SEND | CO_FL_SOCKS4_RECV,
+
+	/* below we have all upstream http proxy tunnel handshake flags grouped into one */
+	CO_FL_UPSTREAM_PROXY_TUNNEL = CO_FL_UPSTREAM_PROXY_TUNNEL_SEND | CO_FL_UPSTREAM_PROXY_TUNNEL_RECV,
 };
 
 /* This function is used to report flags in debugging tools. Please reflect
@@ -174,8 +180,8 @@ static forceinline char *conn_show_flags(char *buf, size_t len, const char *deli
 	_(CO_FL_SOCK_WR_SH, _(CO_FL_ERROR, _(CO_FL_FDLESS, _(CO_FL_WAIT_L4_CONN,
 	_(CO_FL_WAIT_L6_CONN, _(CO_FL_SEND_PROXY, _(CO_FL_ACCEPT_PROXY, _(CO_FL_ACCEPT_CIP,
 	_(CO_FL_SSL_WAIT_HS, _(CO_FL_PRIVATE, _(CO_FL_RCVD_PROXY, _(CO_FL_SESS_IDLE,
-	_(CO_FL_XPRT_TRACKED
-	))))))))))))))))))))))))))));
+	_(CO_FL_XPRT_TRACKED, _(CO_FL_UPSTREAM_PROXY_TUNNEL_SEND ,_(CO_FL_UPSTREAM_PROXY_TUNNEL_RECV
+	))))))))))))))))))))))))))))));
 	/* epilogue */
 	_(~0U);
 	return buf;
@@ -187,73 +193,77 @@ static forceinline char *conn_show_flags(char *buf, size_t len, const char *deli
  * "fc_err" sample fetch. If a new code is added, please add an error label
  * in conn_err_code_str and in the "fc_err_str" sample fetch documentation.
  */
-enum {
-	CO_ER_NONE,             /* no error */
+enum
+{
+	CO_ER_NONE, /* no error */
 
-	CO_ER_CONF_FDLIM,       /* reached process's configured FD limitation */
-	CO_ER_PROC_FDLIM,       /* reached process's FD limitation */
-	CO_ER_SYS_FDLIM,        /* reached system's FD limitation */
-	CO_ER_SYS_MEMLIM,       /* reached system buffers limitation */
-	CO_ER_NOPROTO,          /* protocol not supported */
-	CO_ER_SOCK_ERR,         /* other socket error */
+	CO_ER_CONF_FDLIM, /* reached process's configured FD limitation */
+	CO_ER_PROC_FDLIM, /* reached process's FD limitation */
+	CO_ER_SYS_FDLIM,  /* reached system's FD limitation */
+	CO_ER_SYS_MEMLIM, /* reached system buffers limitation */
+	CO_ER_NOPROTO,	  /* protocol not supported */
+	CO_ER_SOCK_ERR,	  /* other socket error */
 
-	CO_ER_PORT_RANGE,       /* source port range exhausted */
-	CO_ER_CANT_BIND,        /* can't bind to source address */
-	CO_ER_FREE_PORTS,       /* no more free ports on the system */
-	CO_ER_ADDR_INUSE,       /* local address already in use */
+	CO_ER_PORT_RANGE, /* source port range exhausted */
+	CO_ER_CANT_BIND,  /* can't bind to source address */
+	CO_ER_FREE_PORTS, /* no more free ports on the system */
+	CO_ER_ADDR_INUSE, /* local address already in use */
 
-	CO_ER_PRX_EMPTY,        /* nothing received in PROXY protocol header */
-	CO_ER_PRX_ABORT,        /* client abort during PROXY protocol header */
-	CO_ER_PRX_TIMEOUT,      /* timeout while waiting for a PROXY header */
-	CO_ER_PRX_TRUNCATED,    /* truncated PROXY protocol header */
-	CO_ER_PRX_NOT_HDR,      /* not a PROXY protocol header */
-	CO_ER_PRX_BAD_HDR,      /* bad PROXY protocol header */
-	CO_ER_PRX_BAD_PROTO,    /* unsupported protocol in PROXY header */
+	CO_ER_PRX_EMPTY,	 /* nothing received in PROXY protocol header */
+	CO_ER_PRX_ABORT,	 /* client abort during PROXY protocol header */
+	CO_ER_PRX_TIMEOUT,	 /* timeout while waiting for a PROXY header */
+	CO_ER_PRX_TRUNCATED, /* truncated PROXY protocol header */
+	CO_ER_PRX_NOT_HDR,	 /* not a PROXY protocol header */
+	CO_ER_PRX_BAD_HDR,	 /* bad PROXY protocol header */
+	CO_ER_PRX_BAD_PROTO, /* unsupported protocol in PROXY header */
 
-	CO_ER_CIP_EMPTY,        /* nothing received in NetScaler Client IP header */
-	CO_ER_CIP_ABORT,        /* client abort during NetScaler Client IP header */
-	CO_ER_CIP_TIMEOUT,      /* timeout while waiting for a NetScaler Client IP header */
-	CO_ER_CIP_TRUNCATED,    /* truncated NetScaler Client IP header */
-	CO_ER_CIP_BAD_MAGIC,    /* bad magic number in NetScaler Client IP header */
-	CO_ER_CIP_BAD_PROTO,    /* unsupported protocol in NetScaler Client IP header */
+	CO_ER_CIP_EMPTY,	 /* nothing received in NetScaler Client IP header */
+	CO_ER_CIP_ABORT,	 /* client abort during NetScaler Client IP header */
+	CO_ER_CIP_TIMEOUT,	 /* timeout while waiting for a NetScaler Client IP header */
+	CO_ER_CIP_TRUNCATED, /* truncated NetScaler Client IP header */
+	CO_ER_CIP_BAD_MAGIC, /* bad magic number in NetScaler Client IP header */
+	CO_ER_CIP_BAD_PROTO, /* unsupported protocol in NetScaler Client IP header */
 
-	CO_ER_SSL_EMPTY,        /* client closed during SSL handshake */
-	CO_ER_SSL_ABORT,        /* client abort during SSL handshake */
-	CO_ER_SSL_TIMEOUT,      /* timeout during SSL handshake */
-	CO_ER_SSL_TOO_MANY,     /* too many SSL connections */
-	CO_ER_SSL_NO_MEM,       /* no more memory to allocate an SSL connection */
-	CO_ER_SSL_RENEG,        /* forbidden client renegotiation */
-	CO_ER_SSL_CA_FAIL,      /* client cert verification failed in the CA chain */
-	CO_ER_SSL_CRT_FAIL,     /* client cert verification failed on the certificate */
-	CO_ER_SSL_MISMATCH,     /* Server presented an SSL certificate different from the configured one */
+	CO_ER_SSL_EMPTY,		/* client closed during SSL handshake */
+	CO_ER_SSL_ABORT,		/* client abort during SSL handshake */
+	CO_ER_SSL_TIMEOUT,		/* timeout during SSL handshake */
+	CO_ER_SSL_TOO_MANY,		/* too many SSL connections */
+	CO_ER_SSL_NO_MEM,		/* no more memory to allocate an SSL connection */
+	CO_ER_SSL_RENEG,		/* forbidden client renegotiation */
+	CO_ER_SSL_CA_FAIL,		/* client cert verification failed in the CA chain */
+	CO_ER_SSL_CRT_FAIL,		/* client cert verification failed on the certificate */
+	CO_ER_SSL_MISMATCH,		/* Server presented an SSL certificate different from the configured one */
 	CO_ER_SSL_MISMATCH_SNI, /* Server presented an SSL certificate different from the expected one */
-	CO_ER_SSL_HANDSHAKE,    /* SSL error during handshake */
+	CO_ER_SSL_HANDSHAKE,	/* SSL error during handshake */
 	CO_ER_SSL_HANDSHAKE_HB, /* SSL error during handshake with heartbeat present */
-	CO_ER_SSL_KILLED_HB,    /* Stopped a TLSv1 heartbeat attack (CVE-2014-0160) */
-	CO_ER_SSL_NO_TARGET,    /* unknown target (not client nor server) */
+	CO_ER_SSL_KILLED_HB,	/* Stopped a TLSv1 heartbeat attack (CVE-2014-0160) */
+	CO_ER_SSL_NO_TARGET,	/* unknown target (not client nor server) */
 	CO_ER_SSL_EARLY_FAILED, /* Server refused early data */
 
-	CO_ER_SOCKS4_SEND,       /* SOCKS4 Proxy write error during handshake */
-	CO_ER_SOCKS4_RECV,       /* SOCKS4 Proxy read error during handshake */
-	CO_ER_SOCKS4_DENY,       /* SOCKS4 Proxy deny the request */
-	CO_ER_SOCKS4_ABORT,      /* SOCKS4 Proxy handshake aborted by server */
+	CO_ER_SOCKS4_SEND,	/* SOCKS4 Proxy write error during handshake */
+	CO_ER_SOCKS4_RECV,	/* SOCKS4 Proxy read error during handshake */
+	CO_ER_SOCKS4_DENY,	/* SOCKS4 Proxy deny the request */
+	CO_ER_SOCKS4_ABORT, /* SOCKS4 Proxy handshake aborted by server */
 
-	CO_ER_SSL_FATAL,         /* SSL fatal error during a SSL_read or SSL_write */
+	CO_ER_SSL_FATAL, /* SSL fatal error during a SSL_read or SSL_write */
 
-	CO_ER_REVERSE,           /* Error during reverse connect */
+	CO_ER_REVERSE,				 /* Error during reverse connect */
 
-	CO_ER_POLLERR,           /* we only noticed POLLERR */
-	CO_ER_EREFUSED,          /* ECONNREFUSED returned to recv/send */
-	CO_ER_ERESET,            /* ECONNRESET returned to recv/send */
-	CO_ER_EUNREACH,          /* ENETUNREACH returned to recv/send */
-	CO_ER_ENOMEM,            /* ENOMEM returned to recv/send */
-	CO_ER_EBADF,             /* EBADF returned to recv/send (serious bug) */
-	CO_ER_EFAULT,            /* EFAULT returned to recv/send (serious bug) */
-	CO_ER_EINVAL,            /* EINVAL returned to recv/send (serious bug) */
-	CO_ER_ENCONN,            /* ENCONN returned to recv/send */
-	CO_ER_ENSOCK,            /* ENSOCK returned to recv/send */
-	CO_ER_ENOBUFS,           /* ENOBUFS returned to send */
-	CO_ER_EPIPE,             /* EPIPE returned to send */
+	CO_ER_PROXY_CONNECT_SEND, /* Upstream http proxy write error during handshake */
+	CO_ER_PROXY_CONNECT_RECV, /* Upstream http proxy read error during handshake */
+
+	CO_ER_POLLERR,	/* we only noticed POLLERR */
+	CO_ER_EREFUSED, /* ECONNREFUSED returned to recv/send */
+	CO_ER_ERESET,	/* ECONNRESET returned to recv/send */
+	CO_ER_EUNREACH, /* ENETUNREACH returned to recv/send */
+	CO_ER_ENOMEM,	/* ENOMEM returned to recv/send */
+	CO_ER_EBADF,	/* EBADF returned to recv/send (serious bug) */
+	CO_ER_EFAULT,	/* EFAULT returned to recv/send (serious bug) */
+	CO_ER_EINVAL,	/* EINVAL returned to recv/send (serious bug) */
+	CO_ER_ENCONN,	/* ENCONN returned to recv/send */
+	CO_ER_ENSOCK,	/* ENSOCK returned to recv/send */
+	CO_ER_ENOBUFS,	/* ENOBUFS returned to send */
+	CO_ER_EPIPE,	/* EPIPE returned to send */
 };
 
 /* error return codes for accept_conn() */
@@ -376,6 +386,16 @@ struct socks4_request {
 	uint16_t port;		/* port number, 2 bytes (in network byte order) */
 	uint32_t ip;		/* IP address, 4 bytes (in network byte order) */
 	char user_id[8];	/* the user ID string, variable length, terminated with a null (0x00); Using "HAProxy\0" */
+};
+
+/*
+ * Upstream proxy header list
+ */
+
+struct uph_list {
+	struct list list;
+	struct buffer name;
+	struct buffer value;
 };
 
 /* A connection handle is how we differentiate two connections on the lower
@@ -549,7 +569,7 @@ struct connection {
 	/* first cache line */
 	enum obj_type obj_type;       /* differentiates connection from applet context */
 	unsigned char err_code;       /* CO_ER_* */
-	signed short send_proxy_ofs;  /* <0 = offset to (re)send from the end, >0 = send all (reused for SOCKS4) */
+	signed short send_proxy_ofs;  /* <0 = offset to (re)send from the end, >0 = send all (reused for SOCKS4 and upstream http proxy) */
 	unsigned int flags;           /* CO_FL_* */
 	const struct protocol *ctrl;  /* operations at the socket layer */
 	const struct xprt_ops *xprt;  /* operations at the transport layer */

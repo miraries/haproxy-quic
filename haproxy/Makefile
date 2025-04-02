@@ -114,9 +114,10 @@ dist-deb: build-deb
 $(HAPROXY_TARBALL):
 	curl -sfS -o "$(HAPROXY_TARBALL)" "$(HAPROXY_SOURCES)"
 
-$(HAPROXY_BUILDIR): $(HAPROXY_TARBALL)
-	@if ! [ -d "$(HAPROXY_BUILDIR)" ]; then mkdir -v "$(HAPROXY_BUILDIR)"; fi
-	tar -C "$(HAPROXY_BUILDIR)" --strip-components=1 -xf "$(HAPROXY_TARBALL)"
+# use modified source temporarily
+# $(HAPROXY_BUILDIR): $(HAPROXY_TARBALL)
+# 	@if ! [ -d "$(HAPROXY_BUILDIR)" ]; then mkdir -v "$(HAPROXY_BUILDIR)"; fi
+# 	tar -C "$(HAPROXY_BUILDIR)" --strip-components=1 -xf "$(HAPROXY_TARBALL)"
 
 patches: $(HAPROXY_BUILDIR)
 	@echo "Applying patches from $(BUILD_PATCHES_DIR_ABS)..."
@@ -166,8 +167,8 @@ $(HAPROXY_DESTDIR):
 $(HAPROXY_ARCHIVE): $(HAPROXY_DESTDIR)
 	tar -C "$(HAPROXY_DESTDIR)" -cjf "$(HAPROXY_ARCHIVE)" "usr"
 
-$(HAPROXY_DEBORIG): $(HAPROXY_TARBALL)
-	cp -fv "$(HAPROXY_TARBALL)" "$(HAPROXY_DEBORIG)"
+# $(HAPROXY_DEBORIG): $(HAPROXY_TARBALL)
+# 	cp -fv "$(HAPROXY_TARBALL)" "$(HAPROXY_DEBORIG)"
 
 prepare-deb: $(HAPROXY_DEBORIG) $(HAPROXY_BUILDIR)
 	cp -rf debian $(HAPROXY_BUILDIR)/
@@ -182,8 +183,8 @@ prepare-deb: $(HAPROXY_DEBORIG) $(HAPROXY_BUILDIR)
 		cat debian/changelog >> "$(HAPROXY_BUILDIR)/debian/changelog"
 
 build-deb: prepare-deb
-	cd $(HAPROXY_BUILDIR) && \
-		debuild -us -uc --lintian-opts --no-lintian
+	cd $(HAPROXY_BUILDIR) && dpkg-source --commit && \
+		DEB_BUILD_OPTIONS="nocheck" debuild -us -uc --lintian-opts --no-lintian
 	rm -fv $(HAPROXY_TARBALL)
 	rm -rf $(HAPROXY_BUILDIR)
 

@@ -1035,6 +1035,114 @@ static int tcp_parse_request_rule(char **args, int arg, int section_type,
 		arg += 2;
 		rule->action = ACT_TCP_EXPECT_CIP;
 	}
+	else if (strcmp(args[arg], "upstream-proxy-header") == 0) {
+		struct sample_expr *expr;
+		struct uph_list *my_headers;
+		int ret;
+		int kw = arg;
+
+		/*
+		 * args[0] = tcp-request
+		 * args[1] = connection
+		 */
+
+		/* skip over keyword "upstream-proxy-header" */
+		arg++;
+
+		/* TODO: What's the best place to free this? */
+		my_headers = calloc(1,sizeof(*my_headers));
+
+		if (!my_headers)
+		{
+			DPRINTF(stderr,"Can't calloc my_headers\n");
+		}
+
+		LIST_INIT(&my_headers->list);
+
+		chunk_reset(&trash);
+
+		ret = chunk_printf(&trash, "%s",args[arg]);
+		chunk_dup(&my_headers->name,&trash);
+
+		DPRINTF(stderr,"b_size :%ld:\n",b_size(&my_headers->name));
+		DPRINTF(stderr,"b_data :%ld:\n",b_data(&my_headers->name));
+		DPRINTF(stderr,"Header name :%s:\n",args[arg]);
+
+		arg++;
+
+		chunk_reset(&trash);
+
+		ret = chunk_printf(&trash, "%s",args[arg]);
+		chunk_dup(&my_headers->value,&trash);
+
+		DPRINTF(stderr,"Header value :%s:\n",args[arg]);
+		ret = chunk_printf(&my_headers->value, "%s",args[arg]);
+		arg++;
+
+		LIST_APPEND(&curpx->tcp_req.uph_rules, &my_headers->list);
+
+		DPRINTF(stderr,"name  :%s:\n",ist0(ist2(b_orig(&my_headers->name), b_data(&my_headers->name))));
+		DPRINTF(stderr,"value :%s:\n",ist0(ist2(b_orig(&my_headers->value), b_data(&my_headers->value))));
+
+/* 
+		curpx->conf.args.ctx = ARGC_TCO;
+		expr = sample_parse_expr(args, &arg, file, line, err, &curpx->conf.args, NULL);
+		if (!expr) {
+			memprintf(err,
+			          "'%s %s %s' : %s",
+			          args[0], args[1], args[kw], *err);
+			return -1;
+		}
+ */
+		/*
+		 * args[arg]   => Header name
+		 * args[arg+1] => Header value
+		 */
+		//DPRINTF(stderr,"'%s %s' is in '%s %s' rules in %s '%s'\n",
+		//		  args[arg], args[arg+1], args[0], args[1], proxy_type_str(curpx), curpx->id);
+		//arg += 2;
+		rule->action = ACT_TCP_UPSTREAM_HEADER;
+	}
+	else if (strcmp(args[arg], "upstream-proxy-target") == 0) {
+		struct sample_expr *expr;
+		int ret;
+		int kw = arg;
+
+		/*
+		 * args[0] = tcp-request
+		 * args[1] = connection
+		 */
+
+		/* skip over keyword "upstream-proxy-target" */
+		arg++;
+
+		chunk_reset(&trash);
+
+		ret = chunk_printf(&trash, "%s",args[arg]);
+		chunk_dup(&curproxy->tcp_req.upt,&trash);
+
+		/*
+		curpx->conf.args.ctx = ARGC_TCO;
+		expr = sample_parse_expr(args, &arg, file, line, err, &curpx->conf.args, NULL);
+		if (!expr) {
+			memprintf(err,
+			          "'%s %s %s' : %s",
+			          args[0], args[1], args[kw], *err);
+			return -1;
+		}
+		*/
+
+		/*
+		 * args[arg]   => Header name
+		 * args[arg+1] => Header value
+		 * /
+		DPRINTF(stderr,"<<<<<<<<<<<<< upstream-proxy-target '%s %s' is in '%s %s' rules in %s '%s'\n",
+				  args[arg], args[arg+1], args[0], args[1], proxy_type_str(curpx), curpx->id);
+		*/
+		DPRINTF(stderr,"upstream-proxy-target :%s:\n",ist0(ist2(b_orig(&curproxy->tcp_req.upt), b_data(&curproxy->tcp_req.upt))));
+		arg += 2;
+		rule->action = ACT_TCP_UPSTREAM_HOSTNAME;
+	}
 	else {
 		struct action_kw *kw;
 		if (where & SMP_VAL_FE_CON_ACC) {
@@ -1055,7 +1163,7 @@ static int tcp_parse_request_rule(char **args, int arg, int section_type,
 			if (kw->parse((const char **)args, &arg, curpx, rule, err) == ACT_RET_PRS_ERR)
 				return -1;
 		} else {
-			const char *extra[] = { "accept", "reject", "capture", "track-sc", "expect-proxy", "expect-netscaler-cip", NULL };
+			const char *extra[] = {"accept", "reject", "capture", "track-sc", "expect-proxy", "expect-netscaler-cip", "upstream-proxy-header", "upstream-proxy-target", NULL};
 			const char *best = NULL;
 
 
@@ -1073,7 +1181,7 @@ static int tcp_parse_request_rule(char **args, int arg, int section_type,
 			}
 
 			memprintf(err,
-			          "'%s %s' expects 'accept', 'reject', 'capture', 'expect-proxy', 'expect-netscaler-cip', 'track-sc0' ... 'track-sc%d', %s "
+			          "'%s %s' expects 'accept', 'reject', 'capture', 'expect-proxy', 'expect-netscaler-cip', 'upstream-proxy-header', 'upstream-proxy-target', 'track-sc0' ... 'track-sc%d', %s "
 			          "in %s '%s' (got '%s').%s%s%s\n",
 			          args[0], args[1], global.tune.nb_stk_ctr-1,
 			          trash.area, proxy_type_str(curpx),
