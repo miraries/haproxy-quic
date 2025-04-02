@@ -1,5 +1,5 @@
 **/dist
-**/src
+# **/src
 **/*.build
 **/*.dsc
 **/*.tar.gz
